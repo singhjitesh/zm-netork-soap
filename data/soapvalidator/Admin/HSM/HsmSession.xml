@@ -1,0 +1,318 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="tempdir" value="/tmp/volumes"/>
+<t:property name="basedir" value="${tempdir}/volumeRoot${COUNTER}${TIME}"/>
+<t:property name="type" value="2"/>
+
+<t:property name="rootpath" value="${basedir}/rootpath${COUNTER}${TIME}"/>
+<t:property name="name" value="Volume${COUNTER}${TIME}"/>
+
+<t:property name="mgbits_default" value="8"/>
+<t:property name="mbits_default" value="12"/>
+<t:property name="fgbits_default" value="8"/>
+<t:property name="fbits_default" value="12"/>
+<t:property name="compressBlobs_default" value="1"/>
+<t:property name="compressionThreshold_default" value="4096"/>
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+<t:property name="server.name" value="testHsmServer${TIME}${COUNTER}"/>
+<t:property name="server.desc" value="Test Hsm Server"/>
+<t:property name="hsm.age.name" value="zimbraHsmAge"/>
+<t:property name="hsm.age.default" value="30d"/>
+<t:property name="messages.dir" value="${testMailRaw.root}/email02"/>
+
+
+<t:test_case testcaseid="Ping" type="always" >
+    <t:objective>basic system check</t:objective>
+
+    <t:test required="true">
+        <t:request>
+            <PingRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:PingResponse"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+<t:test_case testcaseid="HsmSession01" type="deprecated" areas="HSM" bugsids="36155">
+    <t:objective>Configure HSM to age messages after a specified period of time. </t:objective>
+	<t:steps>
+        1. Login as the admin.
+        2. Modify HSM - set zimbraHsmAge to 30d
+        3. Run HSMSession to clear out data
+        4. Add a new account
+        5. Run HSMSession to verify the new account is processed
+        6. Inject messages (with timestamps in 2005 - i.e. older than 30d) into the account
+        7. Run HSMSession to verify the older messages are processed.
+	</t:steps>
+
+    <t:test id="Login01" required="true">
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test id="GetHsmStatus01" depends="CreateVolume01" required="true">
+        <t:request>
+			<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+             <t:select path="//admin:GetHsmStatusResponse" />
+        </t:response>
+    </t:test>
+
+	<!-- Clean up for the next test case -->
+	<t:test >
+		<t:request depends="GetHsmStatus_HsmRequest01" >
+			<AbortHsmRequest  xmlns="urn:zimbraAdmin" action="cancel"/>
+		</t:request>
+	</t:test>
+
+	<t:for start="1" end="180" break="response">
+		<t:delay msec="1000"/>
+		<t:test >
+			<t:request>
+				<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+			</t:request>
+			<t:response>
+				<t:select path="//admin:GetHsmStatusResponse[@running='0']" query="response" />
+			</t:response>
+		</t:test>
+	</t:for>
+
+
+    <t:test id="getallserversrequest01" depends="Login01">
+        <t:request>
+            <GetAllServersRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+             <t:select path='//admin:GetAllServersResponse/admin:server[admin:a[@n="zimbraServiceEnabled"]="mailbox"][1]' attr="id" set="server.id1"/>
+        </t:response>
+    </t:test>
+    
+    <t:test id="ModifyServer01">
+        <t:request>
+            <ModifyServerRequest xmlns="urn:zimbraAdmin">
+                <id>${server.id1}</id>
+                <a n="${hsm.age.name}">${hsm.age.default}</a>
+            </ModifyServerRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:ModifyServerResponse/admin:server" attr="id" set="server.id1"/>
+        </t:response>
+    </t:test>
+
+    <t:test id="ServerRequest01">
+        <t:request>
+            <GetServerRequest xmlns="urn:zimbraAdmin">
+                <server by="id">${server.id1}</server>
+            </GetServerRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:GetServerResponse/admin:server[@id='${server.id1}']">
+            	<t:select path="//admin:a[@n='zimbraHsmAge']" match="${hsm.age.default}"/>
+            </t:select>
+        </t:response>
+    </t:test>
+
+
+    <!-- create volume -->
+	<t:staftask >
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "mkdir -p ${rootpath}" RETURNSTDOUT RETURNSTDERR WAIT ${staf.process.timeout.default}</params>
+		</t:request>
+	</t:staftask>
+	
+	<t:staftask >
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "chmod 777 ${rootpath}" RETURNSTDOUT RETURNSTDERR WAIT ${staf.process.timeout.default}</params>
+		</t:request>
+	</t:staftask>
+	
+
+    <t:test>
+        <t:request>
+            <CreateVolumeRequest xmlns="urn:zimbraAdmin">
+                <volume name="${name}" rootpath="${rootpath}" 
+                type="${type}" mgbits="${mgbits_default}" mbits="${mbits_default}" fgbits="${fgbits_default}" fbits="${fbits_default}" compressBlobs="${compressBlobs_default}" compressionThreshold="${compressionThreshold_default}"/>
+            </CreateVolumeRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateVolumeResponse/admin:volume" attr="id" set="volume.id"/>
+        </t:response>
+    </t:test>
+    
+    <t:test id=" SetCurrentVolumeRequest" required="true">
+		<t:request>
+			<SetCurrentVolumeRequest xmlns="urn:zimbraAdmin">
+				<id>${volume.id}</id>
+				<type>2</type>
+			</SetCurrentVolumeRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:SetCurrentVolumeResponse"/>
+		</t:response>
+	</t:test>
+    
+    <t:test >
+		<t:request id="HsmSession01" depends="GetHsmStatus01" >
+			<HsmRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+        <t:response>
+             <t:select path="//admin:HsmResponse"/>
+        </t:response>
+	</t:test>
+    
+	<t:for start="1" end="300" break="response0">
+	
+		<t:delay msec="1000"/>
+	
+		<t:test id="GetHsmStatus01" depends="HsmSession01" required="true">
+			<t:request>
+				<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+			</t:request>
+			<t:response>
+				 <t:select path="//admin:GetHsmStatusResponse[@running='0']" query="response0">
+					 <t:select attr="totalMailboxes" set="crtMailboxes"/>
+				 </t:select>
+			</t:response>
+		</t:test>
+	
+	</t:for>
+
+    
+    
+    <!-- create accounts -->
+    <t:property name="test_account1.name" value="test.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+
+    <t:test >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${test_account1.name}</name>
+                <password>${defaultpassword.value}</password>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="test_account1.id"/>
+            <t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="test_account1.server"/>
+        </t:response>
+    </t:test>
+    
+    <t:test>
+        <t:request>
+            <GetMailboxRequest xmlns="urn:zimbraAdmin">
+                <mbox id="${test_account1.id}"/>
+            </GetMailboxRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:GetMailboxResponse/admin:mbox"/>
+        </t:response>
+    </t:test>
+    
+
+    <t:test >
+		<t:request id="HsmSession01" depends="GetHsmStatus01" >
+			<HsmRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+        <t:response>
+            <t:select path="//admin:HsmResponse"/>
+        </t:response>
+	</t:test>
+	
+	<t:for start="1" end="300" break="response1">
+	
+		<t:delay msec="1000"/>
+	
+		<t:test id="GetHsmStatus01" depends="HsmSession01" required="true">
+			<t:request>
+				<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+			</t:request>
+			<t:response>
+				 <t:select path="//admin:GetHsmStatusResponse[@running='0']" query="response1">
+					 <!-- totalMailboxes should be crtMailboxes + 1 -->
+					 <t:select attr="totalMailboxes" match="${crtMailboxes}" emptyset="1"/>
+					 <t:select attr="totalMailboxes" set="expected"/>
+				 </t:select>
+			</t:response>
+		</t:test>
+	
+	</t:for>
+
+    
+    <t:test id="GetHsmStatus01" depends="HsmSession01" required="true">
+        <t:request>
+			<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+             <t:select path="//admin:GetHsmStatusResponse[@running='0']">
+             	<!-- totalMailboxes should be crtMailboxes + 1 -->
+             	<t:select attr="totalMailboxes" match="${crtMailboxes}" emptyset="1"/>
+             	<t:select attr="totalMailboxes" set="expected"/>
+             </t:select>
+        </t:response>
+    </t:test>
+
+    <!-- inject 3 old messages (3 blobs) -->
+    <t:mailinjecttest >
+        <t:lmtpInjectRequest>
+		<foldername>${messages.dir}</foldername>
+		<to>${test_account1.name}</to>
+		<from>${nonZimbraUser.name}</from>
+		<server>${test_account1.server}</server>
+        </t:lmtpInjectRequest>
+    </t:mailinjecttest>
+    
+	<t:test>
+		<t:request id="HsmSession01" depends="GetHsmStatus01" >
+			<HsmRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+        <t:response>
+			<t:select path="//admin:HsmResponse"/>
+        </t:response>
+	</t:test>
+
+	<t:for start="1" end="300" break="response2">
+	
+		<t:delay msec="1000"/>
+	
+		<t:test id="GetHsmStatus01" depends="HsmSession01" required="true">
+			<t:request>
+				<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+			</t:request>
+			<t:response>
+				 <t:select path="//admin:GetHsmStatusResponse[@running='0']" query="response2">
+             		<t:select attr="totalMailboxes" match="${expected}"/>
+					<t:select path="//admin:GetHsmStatusResponse" attr="numBlobsMoved" match="3"/>
+				 </t:select>
+			</t:response>
+		</t:test>
+	
+	</t:for>
+
+	<t:test >
+		<t:request>
+			<GetHsmStatusRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+		<t:response>
+			 <t:select path="//admin:GetHsmStatusResponse">
+         		<t:select attr="totalMailboxes" match="${expected}"/>
+				<t:select path="//admin:GetHsmStatusResponse" attr="numBlobsMoved" match="3"/>
+			 </t:select>
+		</t:response>
+	</t:test>
+    
+</t:test_case>
+
+
+</t:tests>

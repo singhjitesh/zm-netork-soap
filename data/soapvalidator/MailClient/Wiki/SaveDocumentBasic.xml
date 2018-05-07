@@ -1,0 +1,332 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="account1.name" value="wiki.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account1.server" value="NOT_DEFINED"/>
+<t:property name="account1.document1.name" value="wiki.${TIME}.${COUNTER}"/>
+<t:property name="account1.document1.filename" value="${testMailRaw.root}/wiki01/basic.html"/>
+<t:property name="account1.wiki2.pagename" value="wiki.${TIME}.${COUNTER}"/>
+
+<t:property name="account2.name" value="wiki.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account3.name" value="wiki.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+
+
+
+<t:test_case testcaseid="DocumentBasicPing" type="deprecated" >
+ <t:objective>basic system check</t:objective>
+
+	<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>	
+	<t:test required="true">
+		<t:request>
+			<PingRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:PingResponse"/>
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+
+
+
+<t:test_case testcaseid="DocumentBasicAccountSetup" type="deprecated" >
+ <t:objective>create test accounts</t:objective>
+
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+    <t:test required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test required="true" >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account1.name}</name>
+                <password>${defaultpassword.value}</password>
+				<a n="zimbraFeatureNotebookEnabled">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account1.id"/>
+            <t:select path="//admin:CreateAccountResponse/admin:account/admin:a[@n='zimbraMailHost']"  set="account1.server"/>
+        </t:response>
+    </t:test>  
+    
+    <t:test required="true" >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account2.name}</name>
+                <password>${defaultpassword.value}</password>
+				<a n="zimbraFeatureNotebookEnabled">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account2.id"/>
+            <t:select path="//admin:CreateAccountResponse/admin:account/admin:a[@n='zimbraMailHost']"  set="account2.server"/>
+        </t:response>
+    </t:test>  
+
+    <t:test required="true" >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account3.name}</name>
+                <password>${defaultpassword.value}</password>
+				<a n="zimbraFeatureNotebookEnabled">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account3.id"/>
+            <t:select path="//admin:CreateAccountResponse/admin:account/admin:a[@n='zimbraMailHost']"  set="account3.server"/>
+        </t:response>
+    </t:test>  
+
+<t:property name="server.zimbraAccount" value="${account1.server}"/>
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.notebook}']" attr="id" set="wiki.folder.id"/>
+		</t:response>
+	</t:test>
+	
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+			  <w name="${account1.wiki2.pagename}" l="${wiki.folder.id}">
+			  Now is the time for all good men to come to the aid of their country.
+			  </w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="account1.wiki2.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" match="^1$"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+<t:test_case testcaseid="DocumentBasic_SaveDocumentRequest_01" type="deprecated" >
+ <t:objective>Save a basic notebook document using the upload servlet</t:objective>
+ <t:steps>
+ 1. Upload an HTML file
+ 2. Save the document using the upload id
+ </t:steps>
+
+<t:property name="server.zimbraAccount" value="${account1.server}"/>
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.briefcase}']" attr="id" set="notbook.folder.id"/>
+		</t:response>
+	</t:test>
+
+	<t:property name="uploadServletServer" value="${account1.server}"/>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+    <t:test >
+        <t:request>
+			<SaveDocumentRequest xmlns="urn:zimbraMail">
+			  <doc l="${notbook.folder.id}">
+			    <upload id="${document1.aid}"/>
+			  </doc>
+			</SaveDocumentRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveDocumentResponse"/>
+        </t:response>
+    </t:test>
+
+
+</t:test_case>
+
+
+<t:test_case testcaseid="DocumentBasic_SaveDocumentRequest_02" type="deprecated" bugids="22442">
+ <t:objective>Save a basic notebook document with a different version (same name)</t:objective>
+ <t:steps>
+ 1. Upload an HTML file
+ 2. Save the document using the upload id
+ 3. Upload another HTML file
+ 4. Save the document using the same name and version from step 2
+ </t:steps>
+
+<t:property name="server.zimbraAccount" value="${account2.server}"/>
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account2.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.briefcase}']" attr="id" set="notbook.folder.id"/>
+		</t:response>
+	</t:test>
+
+
+	<t:property name="uploadServletServer" value="${account2.server}"/>
+	<t:property name="account2.document1.name" value="doc${TIME}${COUNTER}"/>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+    <t:test >
+        <t:request>
+			<SaveDocumentRequest xmlns="urn:zimbraMail">
+			  <doc l="${notbook.folder.id}" name="${account2.document1.name}">
+			    <upload id="${document1.aid}"/>
+			  </doc>
+			</SaveDocumentRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveDocumentResponse">
+            	<t:select path="//mail:doc" attr="id" set="account2.document1.id"/>
+            	<t:select path="//mail:doc" attr="ver" set="account2.document1.ver"/>
+            </t:select>
+        </t:response>
+    </t:test>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+    <t:test >
+        <t:request>
+			<SaveDocumentRequest xmlns="urn:zimbraMail">
+			  <doc l="${notbook.folder.id}" name="${account2.document1.name}" id="${account2.document1.id}" ver="${account2.document1.ver}">
+			    <upload id="${document1.aid}"/>
+			  </doc>
+			</SaveDocumentRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveDocumentResponse"/>
+        </t:response>
+    </t:test>
+
+
+</t:test_case>
+
+
+<t:test_case testcaseid="DocumentBasic_SaveDocumentRequest_03" type="deprecated" bugids="22637" >
+ <t:objective>Verify bug 22637: REST path is not returned</t:objective>
+ <t:steps>
+ 1. Save the document using the upload id
+ 2. GetWikiRequest
+ </t:steps>
+
+	<t:property name="server.zimbraAccount" value="${account3.server}"/>
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account3.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.briefcase}']" attr="id" set="notbook.folder.id"/>
+		</t:response>
+	</t:test>
+
+	<t:property name="uploadServletServer" value="${account1.server}"/>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+    <t:test >
+        <t:request>
+			<SaveDocumentRequest xmlns="urn:zimbraMail">
+			  <doc l="${notbook.folder.id}">
+			    <upload id="${document1.aid}"/>
+			  </doc>
+			</SaveDocumentRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveDocumentResponse/mail:doc" attr="id" set="document.id"/>
+            <t:select path="//mail:SaveDocumentResponse/mail:doc" attr="rest" emptyset="1"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+</t:tests>

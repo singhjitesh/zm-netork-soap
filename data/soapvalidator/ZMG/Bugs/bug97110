@@ -1,0 +1,335 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="test_account1.name" value="test.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="domain1.name" value="domain${TIME}${COUNTER}.com"/>
+<t:property name="app.id" value="bug97110"/>
+<t:property name="user.agent" value="myuseragent"/>
+<t:property name="app.id2" value="bug97110_3"/>
+<t:property name="user.agent2" value="myuseragent_3"/>
+<t:property name="imap.user" value="soapautomation@zmexch.eng.vmware.com"/>
+<t:property name="imap.password" value="z1mbr4Migration"/>
+<t:property name="imap.host" value="10.137.242.162"/>
+<t:property name="imap.port" value="143"/>
+<t:property name="imap.connection.type" value="cleartext"/>
+<t:property name="IMAP.Exchange2010.defaultMailSubject" value="subject.*"/>
+
+<t:test_case testcaseid="Ping" type="always" >
+    <t:objective>Basic system check</t:objective>
+
+    <t:test id="ping" required="true">
+        <t:request>
+            <PingRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:PingResponse"/>
+        </t:response>
+    </t:test>
+</t:test_case>
+
+
+<t:test_case testcaseid="acctSetup_DataSource_create" type="always" >
+    <t:objective>Do account setup</t:objective>
+
+    <t:test id="admin_login" required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+            <CreateDomainRequest xmlns="urn:zimbraAdmin">
+                <name>${domain1.name}</name>
+            </CreateDomainRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateDomainResponse/admin:domain" attr="id" set="domain1.id"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+       
+	<t:test_case testcaseid="bug97110" type="smoke" bugids="97110">
+    <t:objective> ZMG: app provisioning support when user does not have a Zimbra account </t:objective>
+	<t:steps>
+	1. Create a domain
+    2. Set zimbraMobileGatewayDefaultAppAccountDomainId for the created domain - zmprov mcf zimbraMobileGatewayDefaultAppAccountDomainId domain-id 
+	3. Create valid auth and execute operations - CreateDataSource, GetFolder, Import, Search.
+	4. Execute tests with invalid token
+	</t:steps>
+	    
+   	 <t:test>
+        <t:request>
+            <ModifyConfigRequest  xmlns="urn:zimbraAdmin">
+                <a n="zimbraMobileGatewayDefaultAppAccountDomainId">${domain1.id}</a>
+            </ModifyConfigRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:ModifyConfigResponse"/>
+        </t:response>
+    </t:test>
+
+                   
+	<t:test>
+		<t:request>
+			<BootstrapMobileGatewayAppRequest xmlns="urn:zimbraAccount">
+  				<appId>${app.id}</appId> 
+  				<ua>${user.agent}</ua> 
+  			</BootstrapMobileGatewayAppRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:BootstrapMobileGatewayAppResponse/acct:authToken" set="authToken"/>
+		</t:response>
+	</t:test>
+	
+	<t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="-1" username="${imap.user}" test="0"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="l" set="imap_folder.id"/>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="id" set="data_source.id"/>
+		</t:response>
+    </t:test>   
+    
+
+    <t:test>
+        <t:request>
+        	<GetFolderRequest xmlns="urn:zimbraMail">
+           		<folder l="${imap_folder.id}" />
+        	</GetFolderRequest>
+        </t:request>
+       	<t:response>
+            <t:select path="//mail:GetFolderResponse/mail:folder" attr="id" match="${imap_folder.id}"/>
+        </t:response>
+    </t:test>   
+    
+    <t:test required="true" >
+        <t:request>
+			<ImportDataRequest xmlns="urn:zimbraMail">
+				<imap id="${data_source.id}"/>
+			</ImportDataRequest>
+        </t:request>
+        <t:response>              
+            <t:select path="//mail:ImportDataResponse"/>
+        </t:response>
+    </t:test>
+    
+	<t:for start="1" end="40" break="response">
+		<t:delay msec="3000"/>
+		<t:test >
+        	<t:request>
+				<GetImportStatusRequest xmlns="urn:zimbraMail">
+				</GetImportStatusRequest>
+        	</t:request>
+        	<t:response>              
+            	<t:select path="//mail:GetImportStatusResponse/mail:imap[@isRunning='0']"  query="response"/>
+           	</t:response>
+    	</t:test>
+	</t:for>        
+	
+	    <t:test>
+        <t:request>
+			<SearchRequest xmlns="urn:zimbraMail" types="message" >
+				<query>subject:${IMAP.Exchange2010.defaultMailSubject}</query>
+			</SearchRequest>
+        </t:request>
+        <t:response>              
+            <t:select path="//mail:SearchResponse">
+           	<t:select path="//mail:m/mail:su" match="${IMAP.Exchange2010.defaultMailSubject}"/>
+			</t:select>
+        </t:response>
+    </t:test>	
+	
+	</t:test_case>
+
+
+	
+	<t:test_case testcaseid="Test with invalid auth token" type="smoke" bugids="97110">
+    <t:objective> ZMG: Error should be given when invalid/incorrect authToken is specified </t:objective>
+    <t:property name="authToken" value="invalidauthToken"/>
+	
+	<t:test>
+        <t:request>
+           	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="-1" username="${imap.user}" test="0"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+            <t:select path="//zimbra:Code" match="^service.AUTH_REQUIRED"/>
+		</t:response>
+    </t:test>       
+
+    <t:test>
+        <t:request>
+        	<GetFolderRequest xmlns="urn:zimbraMail">
+           		<folder l="257" />
+        	</GetFolderRequest>
+        </t:request>
+       	<t:response>
+            <t:select path="//zimbra:Code" match="^service.AUTH_REQUIRED"/>
+        </t:response>
+    </t:test> 
+
+    <t:test required="true" >
+        <t:request>
+			<ImportDataRequest xmlns="urn:zimbraMail">
+				<imap id="1234"/>
+			</ImportDataRequest>
+        </t:request>
+        <t:response>              
+            <t:select path="//zimbra:Code" match="^service.AUTH_REQUIRED"/>
+        </t:response>
+    </t:test>
+            	
+	</t:test_case> 
+	
+	
+	<t:test_case testcaseid="Test with expired auth token" type="smoke" bugids="97110">
+    <t:objective> ZMG: Error should be given expired authToken is specified </t:objective>
+    
+        <t:test id="admin_login" required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+    
+    <t:test id="getcosid">
+        <t:request>
+			<GetCosRequest xmlns="urn:zimbraAdmin">
+				<cos by="name">default</cos>
+			</GetCosRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:GetCosResponse/admin:cos"	attr="id" set="cosid"/>    
+        </t:response>
+    </t:test>
+     
+	<t:test id="modifycosrequest2a">
+        <t:request>
+            <ModifyCosRequest xmlns="urn:zimbraAdmin">
+                <id>${cosid}</id>
+                <a n="zimbraAuthTokenLifetime">1m</a>
+            </ModifyCosRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:ModifyCosResponse/admin:cos" attr="id" match="${cosid}"/>            
+        </t:response>
+    </t:test>
+                             
+	<t:test>
+		<t:request>
+			<BootstrapMobileGatewayAppRequest xmlns="urn:zimbraAccount">
+  				<appId>${app.id2}</appId> 
+  				<ua>${user.agent2}</ua> 
+  			</BootstrapMobileGatewayAppRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:BootstrapMobileGatewayAppResponse/acct:appKey" set="appKey"/>
+			<t:select path="//acct:BootstrapMobileGatewayAppResponse/acct:authToken" set="authToken"/>
+		</t:response>
+	</t:test>
+	
+	<t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="-1" username="${imap.user}" test="0"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="l" set="imap_folder.id"/>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="id" set="data_source.id"/>
+		</t:response>
+    </t:test>   
+
+	<!-- Sleep for 1.5 minutes to wait auth to get expired -->
+	<t:delay sec="90"/>
+	    
+    <t:test>
+        <t:request>
+        	<GetFolderRequest xmlns="urn:zimbraMail">
+           		<folder l="257" />
+        	</GetFolderRequest>
+        </t:request>
+       	<t:response>
+            <t:select path="//zimbra:Code" match="^service.AUTH_EXPIRED"/>
+        </t:response>
+    </t:test> 
+ 
+        <t:test id="admin_login" required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+	<!-- Reset AuthTokenLifeTime to 2d -->
+	<t:test id="modifycosrequest2b">
+        <t:request>
+            <ModifyCosRequest xmlns="urn:zimbraAdmin">
+                <id>${cosid}</id>
+                <a n="zimbraAuthTokenLifetime">2d</a>
+            </ModifyCosRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:ModifyCosResponse/admin:cos" attr="id" match="${cosid}"/>            
+        </t:response>
+    </t:test>     
+<!--    
+    <t:test>
+        <t:request>
+    		<RenewMobileGatewayAppTokenRequest xmlns="urn:zimbraAccount">
+  				<appId>${app.id}</appId>
+  				<appKey>${appKey}</appKey>
+			</RenewMobileGatewayAppTokenRequest>
+    	</t:request>	
+        <t:response>
+            <t:select path="//acct:RenewMobileGatewayAppTokenResponse/acct:authToken" set="authToken"/>
+		</t:response>
+    </t:test>   
+    
+    <t:test>
+        <t:request>
+        	<GetFolderRequest xmlns="urn:zimbraMail">
+           		<folder l="${imap_folder.id}" />
+        	</GetFolderRequest>
+        </t:request>
+       	<t:response>
+            <t:select path="//mail:GetFolderResponse/mail:folder" attr="id" match="${imap_folder.id}"/>
+        </t:response>
+    </t:test> 
+        
+    	<t:test id="modifycosrequest2a">
+        <t:request>
+            <ModifyCosRequest xmlns="urn:zimbraAdmin">
+                <id>${cosid}</id>
+                <a n="zimbraAuthTokenLifetime">2d</a>
+            </ModifyCosRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:ModifyCosResponse/admin:cos" attr="id" match="${cosid}"/>            
+        </t:response>
+    </t:test> -->
+    
+    </t:test_case>	
+	
+</t:tests>

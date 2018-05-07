@@ -1,0 +1,319 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="test_account1.name" value="test1.${TIME}.${COUNTER}@${defaultdomain.name}" />
+
+
+<t:property name="test_acct.server" value="NOT_DEFINED"/>
+
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}" />
+
+<t:test_case testcaseid="Ping" type="deprecated">
+    <t:objective>basic system check</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<PingRequest xmlns="urn:zimbraAdmin" />
+		</t:request>
+		<t:response>
+			<t:select path="//admin:PingResponse" />
+		</t:response>
+	</t:test>
+    
+</t:test_case>
+
+
+<t:test_case testcaseid="acctSetup1" type="deprecated">
+    <t:objective>create test account</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAdmin">
+				<name>${admin.user}</name>
+				<password>${admin.password}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:AuthResponse/admin:authToken" set="authToken" />
+		</t:response>
+	</t:test>
+    
+    <t:test required="true">
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${test_account1.name}</name>
+                <password>${defaultpassword.value}</password>
+                <a n="zimbraFeatureTwoFactorAuthAvailable">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id" set="test_account1.id" />
+            <t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="test_acct1.server"/>
+        </t:response>
+    </t:test>
+
+	
+</t:test_case>
+
+<t:test_case testcaseid="TemptokenLifetime" type="deprecated" bugids="100161">
+    <t:objective>login as the test account.</t:objective>
+    <t:steps>
+    1. Enable two factor authentication for an account.
+    2. Sent an auth request with an expired totp, account.TWO_FACTOR_AUTH_FAILED was given.
+    3. Sent an auth request with an invalid totp, account.TWO_FACTOR_AUTH_FAILED was 
+given.
+    4. Sent an auth request with correct totp/temp token. Account login was successful. Waited for 60Seconds. After this sent another auth request with previous temp token and new totp, service.AUTH_EXPIRED was given.
+    5. Sent an auth request with correct totp/temp token. Account login was successful. After this sent an end session request. Sent an auth request with previous temp token and new totp, service.AUTH_EXPIRED was given.
+    </t:steps>
+    
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${test_account1.name}</account>
+				<password>${defaultpassword.value}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken" />
+		</t:response>
+	</t:test>
+	
+		
+ 
+  
+  <t:test required="true">
+		<t:request>
+	
+      <EnableTwoFactorAuthRequest xmlns="urn:zimbraAccount">
+          <name>${test_account1.name}</name>
+          <password>test123</password>
+      </EnableTwoFactorAuthRequest>
+  </t:request>
+  <t:response>
+            <t:select path="//acct:EnableTwoFactorAuthResponse/acct:authToken" set="temptoken" />
+			<t:select path="//acct:EnableTwoFactorAuthResponse/acct:secret" set="secret"/>
+	</t:response>
+	</t:test>
+	
+	
+	
+  <t:staftask>
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "su - zimbra -c \'/opt/zimbra/bin/zmtotp -a ${test_account1.name} -s ${secret}'" RETURNSTDOUT WAIT</params>
+		</t:request>
+			<t:response>
+        	<t:select regex="(?s)(RC.*)(Data.*:\sCurrent TOTP code is:\s)([0-9].*[0-9])(.*)" group="3" set="totp"/>
+        </t:response> 
+    </t:staftask>
+		
+
+	<t:test required="true">
+	<t:request>
+      <EnableTwoFactorAuthRequest xmlns="urn:zimbraAccount">
+          <name>${test_account1.name}</name>
+           <authToken verifyAccount="0">${temptoken}</authToken>
+           <twoFactorCode>${totp}</twoFactorCode>
+           </EnableTwoFactorAuthRequest>
+</t:request>
+  <t:response>
+			<t:select path="//acct:EnableTwoFactorAuthResponse"/>
+			<t:select path="//acct:EnableTwoFactorAuthResponse/acct:scratchCodes/acct:scratchCode" set="scratchcode1"/>
+	</t:response>
+	</t:test>
+	
+<!-- Test for expired TOTP -->
+	
+<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount"  >
+				<account by="name">${test_account1.name}</account>
+				<password>test123</password>
+
+							
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken1" />
+			</t:response>
+	</t:test>
+	
+	
+	<t:delay sec="60"/>
+	
+	<t:test required="true">
+		<t:request>
+		
+      <AuthRequest xmlns="urn:zimbraAccount">
+          <account by="name">${test_account1.name}</account>
+<authToken verifyAccount="0">${authToken1}</authToken>
+<twoFactorCode>${totp}</twoFactorCode>
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			 <t:select path = "//zimbra:Code" match="account.TWO_FACTOR_AUTH_FAILED" />
+			</t:response>
+	</t:test> 
+
+
+<!-- Test for invalid TOTP -->
+
+
+<t:test required="true">
+		<t:request>
+		
+      <AuthRequest xmlns="urn:zimbraAccount">
+          <account by="name">${test_account1.name}</account>
+<authToken verifyAccount="0">${authToken1}</authToken>
+<twoFactorCode>XYDGFS</twoFactorCode>
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			 <t:select path = "//zimbra:Code" match="account.TWO_FACTOR_AUTH_FAILED" />
+			</t:response>
+	</t:test> 
+	
+<!-- Test for expired auth token -->
+
+	<t:staftask >
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "su - zimbra -c \'/opt/zimbra/bin/zmtotp -a ${test_account1.name} -s ${secret}'" RETURNSTDOUT WAIT</params>
+		</t:request>
+			<t:response>
+        	<t:select regex="(?s)(RC.*)(Data.*:\sCurrent TOTP code is:\s)([0-9].*[0-9])(.*)" group="3" set="totp2"/>
+        </t:response> 
+    </t:staftask>
+	
+	<t:test required="true">
+		<t:request>
+		
+      <AuthRequest xmlns="urn:zimbraAccount">
+          <account by="name">${test_account1.name}</account>
+<authToken verifyAccount="0">${authToken1}</authToken>
+<twoFactorCode>${totp2}</twoFactorCode>
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken" />
+			</t:response>
+	</t:test> 
+	
+	<t:delay sec="60"/>
+	
+	<t:staftask >
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "su - zimbra -c \'/opt/zimbra/bin/zmtotp -a ${test_account1.name} -s ${secret}'" RETURNSTDOUT WAIT</params>
+		</t:request>
+			<t:response>
+        	<t:select regex="(?s)(RC.*)(Data.*:\sCurrent TOTP code is:\s)([0-9].*[0-9])(.*)" group="3" set="totp3"/>
+        </t:response> 
+    </t:staftask>
+	
+	<t:test required="true">
+		<t:request>
+		
+      <AuthRequest xmlns="urn:zimbraAccount">
+          <account by="name">${test_account1.name}</account>
+<authToken verifyAccount="0">${authToken1}</authToken>
+<twoFactorCode>${totp3}</twoFactorCode>
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			<t:select path="//zimbra:Code" match="service.AUTH_EXPIRED" />
+			</t:response>
+	</t:test> 
+
+
+<!-- Test for expired auth token after end session request -->
+	
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount"  >
+				<account by="name">${test_account1.name}</account>
+				<password>test123</password>
+
+							
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken2" />
+			</t:response>
+	</t:test>
+
+<t:test required="true">
+		<t:request>
+		
+      <AuthRequest xmlns="urn:zimbraAccount">
+          <account by="name">${test_account1.name}</account>
+<authToken verifyAccount="0">${authToken2}</authToken>
+<twoFactorCode>${scratchcode1}</twoFactorCode>
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			 <t:select path="//acct:AuthResponse/acct:authToken" set="authToken" />
+			</t:response>
+	</t:test> 
+
+	
+<t:test>
+        <t:request>
+            <EndSessionRequest xmlns="urn:zimbraAccount"/>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:EndSessionResponse"/>
+		</t:response>
+    </t:test> 
+    
+  <t:staftask >
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "su - zimbra -c \'/opt/zimbra/bin/zmtotp -a ${test_account1.name} -s ${secret}'" RETURNSTDOUT WAIT</params>
+		</t:request>
+			<t:response>
+        	<t:select regex="(?s)(RC.*)(Data.*:\sCurrent TOTP code is:\s)([0-9].*[0-9])(.*)" group="3" set="totp1"/>
+        </t:response> 
+    </t:staftask>
+    
+<t:test required="true">
+		<t:request>
+		
+      <AuthRequest xmlns="urn:zimbraAccount">
+          <account by="name">${test_account1.name}</account>
+<authToken verifyAccount="0">${authToken2}</authToken>
+<twoFactorCode>${totp1}</twoFactorCode>
+</AuthRequest>
+
+		</t:request>
+		<t:response>
+		   
+			 <t:select path = "//zimbra:Code" match="service.AUTH_EXPIRED" />
+			</t:response>
+	</t:test>
+
+</t:test_case>
+
+
+
+
+
+
+</t:tests>

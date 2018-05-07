@@ -1,0 +1,201 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+
+<t:property name="account1.name" value="wiki.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account1.newname.prefix" value="prefix"/>
+<t:property name="account1.newname" value="${account1.newname.prefix}${account1.name}"/>
+
+
+<t:test_case testcaseid="Wiki_AccountBackup_Setup" type="deprecated" >
+    <t:objective>basic system check</t:objective>
+
+	<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>	
+    <t:test id="ping" required="true">
+        <t:request>
+            <PingRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:PingResponse"/>
+        </t:response>
+    </t:test>
+
+    <t:test  >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account1.name}</name>
+                <password>${defaultpassword.value}</password>
+				<a n="zimbraFeatureNotebookEnabled">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account1.id"/>
+			<t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="account1.server"/>
+        </t:response>
+    </t:test>  
+
+
+</t:test_case>
+
+
+<t:test_case testcaseid="Wiki_AccountRename_01" type="deprecated" bugids="22452" >
+    <t:objective>Verify a renamed account can still access wiki documents</t:objective>
+    <t:steps>
+    1. Login to account1
+    2. Upload a document
+    3. Create a wiki with the document inline
+    4. Login to admin
+    5. Rename the account
+    6. Login as the renamed account
+    7. Get the document URL
+    8. Get the wiki - verify the document URL is correct
+    </t:steps>
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.notebook}']" attr="id" set="wiki.folder.id"/>
+		</t:response>
+	</t:test>
+	
+	<t:property name="uploadServletServer" value="${account1.server}"/>
+	<t:property name="server.restServlet" value="${account1.server}"/>
+	<t:property name="account1.document1.filename" value="${testMailRaw.root}/photos/Picture1.jpg"/>
+	<t:property name="account1.wiki1.name" value="name${TIME}${COUNTER}"/>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="account1.document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+    <t:test >
+        <t:request>
+			<SaveDocumentRequest xmlns="urn:zimbraMail">
+			  <doc l="${wiki.folder.id}" >
+			    <upload id="${account1.document1.aid}"/>
+			  </doc>
+			</SaveDocumentRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveDocumentResponse">
+            	<t:select path="//mail:doc" attr="id" set="account1.document1.id"/>
+            </t:select>
+        </t:response>
+    </t:test>
+
+    <t:test >
+		<t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${account1.wiki1.name}" l="${wiki.folder.id}">
+&lt;P>test&lt;/P>
+&lt;P>&lt;IMG src="${account1.document1.rest}">
+&lt;P>test&lt;/P>
+				</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="account1.wiki1.id"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>	
+	<t:test required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+	</t:test>
+
+    <t:test depends="renameAccountRequest1a">
+        <t:request>
+            <RenameAccountRequest xmlns="urn:zimbraAdmin">
+                <id>${account1.id}</id>
+                <newName>${account1.newname}</newName>
+            </RenameAccountRequest >
+        </t:request>
+        <t:response>
+            <t:select path="//admin:RenameAccountResponse"/>
+        </t:response>
+    </t:test>
+	
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.newname}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${account1.wiki1.id}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse">
+            	<t:select path="//mail:body" match="(?s).*${account1.newname.prefix}.*"/>
+            </t:select>
+        </t:response>
+    </t:test>
+
+	<t:property name="server.restServlet" value="${account1.server}"/>
+	
+	<t:resttest>
+		<t:restServletRequest>
+			<url>${account1.newname}/Notebook/Picture1.jpg</url>
+		</t:restServletRequest>
+		<t:restServletResponse>
+			<t:select attr="StatusCode" match="200"/>
+		</t:restServletResponse>
+	</t:resttest>
+
+
+
+</t:test_case>
+
+</t:tests>
+

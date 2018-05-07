@@ -1,0 +1,867 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="account1.name" value="wiki1.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account2.name" value="wiki2.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+
+<t:property name="test_acct.server" value="NOT_DEFINED"/>
+
+<t:property name="wiki1.pagename" value="wikipg1.${TIME}.${COUNTER}"/>
+<t:property name="wiki2.pagename" value="wikipg2.${TIME}.${COUNTER}"/>
+<t:property name="wiki3.pagename" value="wikipg3.${TIME}.${COUNTER}"/>
+<t:property name="wiki4.pagename" value="wikipg4.${TIME}.${COUNTER}"/>
+<t:property name="wiki5.pagename" value="wikipg5.${TIME}.${COUNTER}"/>
+<t:property name="wiki6.pagename" value="wikipg6.${TIME}.${COUNTER}"/>
+<t:property name="wiki6.contents" value="wikipg6.${TIME}.${COUNTER}.contents"/>
+<t:property name="wiki7.pagename" value="wikipg7.${TIME}.${COUNTER}"/>
+<t:property name="wiki7.contents" value="wikipg7.${TIME}.${COUNTER}.contents"/>
+
+
+<t:property name="wiki1.sec" value="wikisec1.${TIME}.${COUNTER}"/>
+<t:property name="wiki2.sec" value="wikisec2.${TIME}.${COUNTER}"/>
+<t:property name="wiki3.sec" value="wikisec3.${TIME}.${COUNTER}"/>
+<t:property name="wiki4.sec" value="wikisec4.${TIME}.${COUNTER}"/>
+
+<t:property name="blank" value=""/>
+<t:property name="space" value="             "/>
+<t:property name="spchar" value=":''&lt;//\\"/>
+<t:property name="sometext" value="some text"/>
+<t:property name="negative" value="-1"/>
+<t:property name="zero" value="0"/>
+<t:property name="largenumber" value="12345678901234567890"/>
+
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+
+<t:test_case testcaseid="WikiBasicPing" type="deprecated" >
+ <t:objective>basic system check</t:objective>
+
+	<t:test required="true">
+		<t:request>
+			<PingRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:PingResponse"/>
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="WikiBasicAccountSetup" type="deprecated" >
+ <t:objective>create test accounts</t:objective>
+
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+
+    <t:test required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test required="true" >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account1.name}</name>
+                <password>${defaultpassword.value}</password>
+				<a n="zimbraFeatureNotebookEnabled">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account1.id"/>
+            <t:select path="//admin:CreateAccountResponse/admin:account/admin:a[@n='zimbraMailHost']"  set="test_acct.server"/>
+        </t:response>
+    </t:test>  
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.notebook}']" attr="id" set="wiki.folder.id"/>
+		</t:response>
+	</t:test>
+	
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki1.pagename}" l="${wiki.folder.id}">Now is the time for all good men to come to the aid of their country</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki1.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki1.ver"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="WikiBasic_GetWikiRequest_01" type="deprecated" bugids="33798">
+	<t:objective>Get the creater, version, fragment, size,  and body of basic wiki document saved in the parent folder</t:objective>
+	<t:steps>
+			1. Get a wiki page using the wiki ID
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki1.id}" ver="${wiki1.ver}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w">
+			<t:select attr="id" match="${wiki1.id}"/>
+			<t:select attr="l" match="${wiki.folder.id}"/>
+			<t:select attr="name" match="${wiki1.pagename}"/>
+			<t:select attr="ver" match="^1$"/>
+			<t:select attr="cr" match="^${account1.name}$"/>
+			<t:select attr="leb"/>
+			<t:select attr="cd" />
+			<t:select attr="md" />
+			<t:select attr="s"/>
+			<t:select attr="d"/>
+			<t:select attr="fr" match="^Now is the time for all good men.*"/>
+			<t:select attr="body" match="Now is the time for all good men to come to the aid of their country"/>
+           </t:select>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+<t:test_case testcaseid="WikiBasic_GetWikiRequest_01a" type="deprecated" >
+	<t:objective>Get a wiki by name and folder - verify the body is returned</t:objective>
+	<t:steps>
+			1. Get a wiki page using the wiki ID
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki6.pagename}" l="${wiki.folder.id}">${wiki6.contents}</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki6.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki6.ver"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki6.pagename}" l="${wiki.folder.id}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w">
+			<t:select attr="id" match="${wiki6.id}"/>
+			<t:select attr="l" match="${wiki.folder.id}"/>
+			<t:select attr="name" match="${wiki6.pagename}"/>
+			<t:select attr="ver" match="^1$"/>
+			<t:select attr="cr" match="^${account1.name}$"/>
+			<t:select attr="leb"/>
+			<t:select attr="cd" />
+			<t:select attr="md" />
+			<t:select attr="s"/>
+			<t:select attr="d"/>
+			<t:select attr="fr" match="^${wiki6.contents}.*"/>
+			<t:select attr="body" match="${wiki6.contents}"/>
+           </t:select>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="WikiBasic_GetWikiRequest_02" type="deprecated" bugids="9765, 16942" >
+	<t:objective>Get a particular version of wiki document from a subfolder.</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Create a wiki folder and a wiki document.
+			3. Get a wiki page using the wiki ID.
+			4. Edit the page and then get it's second version.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+	<t:property name="wiki1.version1.content" value="content ${TIME} ${COUNTER}"/>
+	<t:property name="wiki1.version2.content" value="content ${TIME} ${COUNTER}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<CreateFolderRequest xmlns="urn:zimbraMail">
+				<folder name="${wiki1.sec}" l="${wiki.folder.id}" view="wiki"/>
+			</CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="name" match="${wiki1.sec}"/>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="wiki1.sec.id"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki2.pagename}" l="${wiki1.sec.id}">${wiki1.version1.content}</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki2.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki2.ver"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki2.id}" ver="${wiki2.ver}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w">
+			<t:select attr="id" match="${wiki2.id}"/>
+			<t:select attr="l" match="${wiki1.sec.id}"/>
+			<t:select attr="name" match="${wiki2.pagename}"/>
+			<t:select attr="ver" set="wiki2.ver1"/>
+			<t:select attr="cr" match="^${account1.name}$"/>
+			<t:select attr="leb"/>
+			<t:select attr="cd"/>
+			<t:select attr="md"/>
+			<t:select attr="s"/>
+			<t:select attr="d"/>
+			<t:select attr="fr" match="^${wiki1.version1.content}.*"/>
+			<t:select attr="body" match="${wiki1.version1.content}"/>
+           </t:select>
+        </t:response>
+    </t:test>
+
+  	<t:test >
+		<t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki2.pagename}" id="${wiki2.id}" l="${wiki1.sec.id}" ver="${wiki2.ver1}" >${wiki1.version2.content}</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki1.ver2.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki1.ver2"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki2.id}" ver="${wiki1.ver2}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w">
+			<t:select attr="id" match="${wiki2.id}"/>
+			<t:select attr="l" match="${wiki1.sec.id}"/>
+			<t:select attr="name" match="${wiki2.pagename}"/>
+			<t:select attr="cr" match="^${account1.name}$"/>
+			<t:select attr="fr" match="^${wiki1.version2.content}.*"/>
+			<t:select attr="body" match="${wiki1.version2.content}"/>
+           </t:select>
+        </t:response>
+    </t:test>
+ 
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_03" type="deprecated" bugids="8184">
+	<t:objective>Get a wiki document by name and folder ID without specifying the version.</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Create a wiki document.
+			3. Get a wiki page using only wiki ID.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki3.pagename}" l="${wiki.folder.id}">Wiki Page#3- Now is the time for all good men to come to the aid of their country</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki3.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki3.ver"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki3.pagename}" l="${wiki.folder.id}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w">
+ 			<t:select attr="id" match="${wiki3.id}"/>
+			<t:select attr="name" match="${wiki3.pagename}"/>
+			<t:select attr="cr" match="^${account1.name}$"/>
+            </t:select>
+        </t:response>
+    </t:test>
+	
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_04" type="deprecated" >
+	<t:objective>Get a wiki document by ID without specifying the version and folder ID .</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Create a wiki document.
+			3. Get a wiki page using only wiki ID.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+     <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki4.pagename}" l="${wiki.folder.id}">Wiki Page#4- Now is the time for all good men to come to the aid of their country</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki4.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki4.ver"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki4.id}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w">
+ 			<t:select attr="id" match="${wiki4.id}"/>
+			<t:select attr="name" match="${wiki4.pagename}"/>
+			<t:select attr="cr" match="^${account1.name}$"/>
+            </t:select>
+        </t:response>
+    </t:test>
+	
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_05" type="deprecated" >
+	<t:objective>Get a wiki document by only ID (blank/space/spchar/sometext/negative/zero/largenumber) .</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Get a wiki page using only wiki ID.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${blank}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^service.INVALID_REQUEST"/>
+        </t:response>
+    </t:test>
+	
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${space}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^service.INVALID_REQUEST"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${spchar}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^service.INVALID_REQUEST"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${sometext}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^service.INVALID_REQUEST"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${negative}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^mail.NO_SUCH_DOC"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${zero}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^mail.NO_SUCH_ITEM"/>
+        </t:response>
+    </t:test>
+
+	<t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${largenumber}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path= "//zimbra:Code" match="^service.INVALID_REQUEST"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_06" bugids="8186" type="deprecated">
+	<t:objective>Get a wiki document by giving only version id.</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Get a wiki page using only version ID.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w ver="1"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_07" type="deprecated" bugids="8186" >
+	<t:objective>Get a wiki document by giving only folder id.</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Get a wiki page using only folder ID.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w l="${wiki.folder.id}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+<t:test_case testcaseid="GetWikiRequest_08" type="deprecated"  >
+	<t:objective>Get a wiki document by same name present in different folders..</t:objective>
+	<t:steps>
+			1. Login into the test account.
+			2. Create two documents with the same name that exist in different folders. 
+			3. Get a wiki page and verify that the correct document is returned.
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki5.pagename}" l="${wiki.folder.id}">Wiki Page#5- Now is the time for all good men to come to the aid of their country</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki5.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki5.ver"/>
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<CreateFolderRequest xmlns="urn:zimbraMail">
+				<folder name="${wiki2.sec}" l="${wiki.folder.id}" view="wiki"/>
+			</CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="name" match="${wiki2.sec}"/>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="wiki2.sec.id"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki5.pagename}" l="${wiki2.sec.id}">Wiki Page#5- Now is the time for all good men to come to the aid of their country</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki6.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki6.ver"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki5.pagename}" l="${wiki.folder.id}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="id" match="${wiki5.id}"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki5.pagename}" l="${wiki2.sec.id}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="id" match="${wiki6.id}"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_09" type="deprecated" bugids="21341">
+	<t:objective> Verify older version of the documents can be viewed </t:objective>
+	<t:steps>
+			1.  Create an account
+			2.  Create a wiki page in the account (version 1)
+			3.  Resave the wiki page (version 2)
+			4. Again resave the wiki page (version 3)
+			5.  Get version 1 of the wiki page
+			6.  Get version 2 of the wiki page
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+	<t:property name="wiki.content1" value="Wiki Page#7- This is a test page."/>
+	<t:property name="wiki.content2" value="${wiki.content1} Modifying it for version 2 "/>
+	<t:property name="wiki.content3" value="${wiki.content2}. Ending the test page. "/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki7.pagename}" l="${wiki.folder.id}">${wiki.content1}</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki7.id"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki7.ver1"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki7.pagename}" id="${wiki7.id}" l="${wiki.folder.id}" ver="${wiki7.ver1}">${wiki.content2}</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" match="${wiki7.id}"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki7.ver2"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki7.pagename}" id="${wiki7.id}" l="${wiki.folder.id}" ver="${wiki7.ver2}">${wiki.content3}</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" match="${wiki7.id}"/>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" set="wiki7.ver3"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki7.id}" ver="${wiki7.ver1}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="id" match="${wiki7.id}"/>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="name" match="${wiki7.pagename}"/>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="ver" match="${wiki7.ver1}"/>
+			<t:select path="//mail:GetWikiResponse/mail:w" attr="fr" match="^${wiki.content1}*"/>
+			<t:select path="//mail:GetWikiResponse/mail:w" attr="fr" match="^${wiki.content2}*" emptyset="1"/>
+			<t:select path="//mail:GetWikiResponse/mail:w"  attr="body" match="${wiki.content1}"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki7.id}" ver="${wiki7.ver2}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="id" match="${wiki7.id}"/>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="name" match="${wiki7.pagename}"/>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="ver" match="${wiki7.ver2}"/>
+			<t:select path="//mail:GetWikiResponse/mail:w" attr="fr" match="^${wiki.content2}*"/>
+			<t:select path="//mail:GetWikiResponse/mail:w" attr="fr" match="^${wiki.content3}*" emptyset="1"/>
+			<t:select path="//mail:GetWikiResponse/mail:w"  attr="body" match="${wiki.content2}"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki7.id}" ver="${wiki7.ver3}"/>
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="id" match="${wiki7.id}"/>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="name" match="${wiki7.pagename}"/>
+            <t:select path="//mail:GetWikiResponse/mail:w" attr="ver" match="${wiki7.ver3}"/>
+			<t:select path="//mail:GetWikiResponse/mail:w" attr="fr" match="^${wiki.content3}*"/>
+			<t:select path="//mail:GetWikiResponse/mail:w"  attr="body" match="${wiki.content3}"/>
+        </t:response>
+    </t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="GetWikiRequest_10" type="deprecated" bugids="24836">
+	<t:objective> Verify fragment on wiki does not strip "quoted" text </t:objective>
+	<t:steps>
+			1.  Create a wiki page in the account with simulated quoted text
+			2.  Get the wiki page - verify the quoted text is in the fragment
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${test_acct.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:property name="wiki10.pagename" value="wiki10${TIME}${COUNTER}"/>
+
+    <t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+				<w name="${wiki10.pagename}" l="${wiki.folder.id}">&amp;gt; quoted text&lt;br&gt;&amp;gt; quoted text&lt;br&gt;&lt;br&gt;Normal text&lt;br&gt;&lt;br&gt;&lt;br&gt;</w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="id" set="wiki10.id"/>
+        </t:response>
+    </t:test>
+
+
+    <t:test >
+        <t:request>
+			<GetWikiRequest xmlns="urn:zimbraMail">
+				<w id="${wiki10.id}" />
+			</GetWikiRequest>
+        </t:request>
+        <t:response>
+			<t:select path="//mail:GetWikiResponse">
+				<t:select path="//mail:w[@id='${wiki10.id}']">
+					<t:select path="//mail:fr" match="^&gt; quoted text &gt; quoted text Normal text$"/>
+				</t:select>
+			</t:select>
+        </t:response>
+    </t:test>
+
+
+</t:test_case>
+
+
+</t:tests>

@@ -1,0 +1,355 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+
+<t:property name="account1.name"			value="test${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account1.message1.subject"	value="email01A"/>
+<t:property name="account1.message2.subject"	value="email01B"/>
+<t:property name="account1.message3.subject"	value="email01C"/>
+<t:property name="account1.folder1.name"	value="folder1.${TIME}.${COUNTER}"/>
+<t:property name="account1.folder2.name"	value="folder2.${TIME}.${COUNTER}"/>
+
+<t:property name="account2.name"			value="test${TIME}.${COUNTER}@${defaultdomain.name}"/>
+
+
+
+<t:property name="op.grant"			value="grant"/>
+<t:property name="perm.usr"			value="usr"/>
+<t:property name="perm.grp"			value="grp"/>
+<t:property name="perm.dom"			value="dom"/>
+<t:property name="perm.cos"			value="cos"/>
+<t:property name="perm.all"			value="all"/>
+<t:property name="perm.pub"			value="pub"/>
+<t:property name="perm.guest"		value="guest"/>
+
+<t:property name="message1.msg" value="${testMailRaw.root}/zcs-2352/dakutenNFD.msg"/>
+<t:property name="subscript1.sh" value="${testMailRaw.root.absolute}/zcs-2352/compare.sh"/>
+<t:property name="message1.subject" value="Mail_Attachments_Japanese_Filename_NFD"/>
+
+
+<t:test_case testcaseid="RestServlet_FormatZIP_AccountSetup" type="always" >
+	<t:objective>setup accounts</t:objective>
+
+	<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+	
+	<t:test required="true">
+		<t:request>
+			<PingRequest xmlns="urn:zimbraAdmin"/>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:PingResponse"/>
+		</t:response>
+	</t:test>
+
+	<t:test required="true" >
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAdmin">
+				<name>${admin.user}</name>
+				<password>${admin.password}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+		</t:response>
+	</t:test>
+
+	<t:test required="true">
+		<t:request>
+			<CreateAccountRequest xmlns="urn:zimbraAdmin">
+				<name>${account1.name}</name>
+				<password>${defaultpassword.value}</password>
+			</CreateAccountRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account1.id"/>
+			<t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="account1.server"/>
+		</t:response>
+	</t:test>
+
+	<t:test required="true">
+		<t:request>
+			<CreateAccountRequest xmlns="urn:zimbraAdmin">
+				<name>${account2.name}</name>
+				<password>${defaultpassword.value}</password>
+			</CreateAccountRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account2.id"/>
+			<t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="account2.server"/>
+		</t:response>
+	</t:test>
+
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${account1.name}</account>
+				<password>${defaultpassword.value}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+		</t:response>
+	</t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse">
+				<t:select path="//mail:folder[@name='${globals.inbox}']" attr="id" set="account1.folder.inbox.id"/>
+			</t:select>
+		</t:response>
+	</t:test>
+
+    <t:test id="CreateFolderRequest1a" >
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${account1.folder1.name}" l="${account1.folder.inbox.id}"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="account1.folder1.id"/>
+        </t:response>
+	</t:test>
+
+    <t:test id="CreateFolderRequest1a" >
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${account1.folder2.name}" l="${account1.folder.inbox.id}"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="account1.folder2.id"/>
+        </t:response>
+	</t:test>
+
+    <t:test>
+        <t:request>
+            <AddMsgRequest xmlns="urn:zimbraMail">
+                <m l="${account1.folder.inbox.id}">
+                    <content>From: foo@foo.com
+To: foo@foo.com
+Subject: email01A
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+
+
+email01A content
+</content>
+                </m>
+            </AddMsgRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:AddMsgResponse/mail:m" attr="id" set="account1.message1.id"/>
+        </t:response>
+    </t:test>
+
+    <t:test>
+        <t:request>
+            <AddMsgRequest xmlns="urn:zimbraMail">
+                <m l="${account1.folder1.id}">
+                    <content>From: foo@foo.com
+To: foo@foo.com
+Subject: email01B
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+
+
+email01B content
+</content>
+                </m>
+            </AddMsgRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:AddMsgResponse/mail:m" attr="id" set="account1.message2.id"/>
+        </t:response>
+    </t:test>
+
+    <t:test>
+        <t:request>
+            <AddMsgRequest xmlns="urn:zimbraMail">
+                <m l="${account1.folder2.id}">
+                    <content>From: foo@foo.com
+To: foo@foo.com
+Subject: email01C
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+
+
+email01C content
+</content>
+                </m>
+            </AddMsgRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:AddMsgResponse/mail:m" attr="id" set="account1.message3.id"/>
+        </t:response>
+    </t:test>
+
+
+</t:test_case>
+
+
+<t:test_case testcaseid="RestServlet_FormatZIP_Basic_01" type="smoke" >
+	<t:objective>Verify basic ZIP format</t:objective>
+	<t:steps>
+	1. Use the rest servlet to view inbox in ZIP format
+	</t:steps>
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${account1.name}</account>
+				<password>${defaultpassword.value}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+		</t:response>
+	</t:test>
+
+
+	<t:property name="server.restServlet" value="${account1.server}"/>
+
+	<t:resttest>
+		<t:restServletRequest>
+			<folder>${globals.inbox}</folder>
+			<fmt>zip</fmt>
+		</t:restServletRequest>
+		<t:restServletResponse>
+			<t:select attr="StatusCode" match="200"/>
+			<!-- TODO: verify that ZIP contains the messages (email01A and email01B) -->
+		</t:restServletResponse>
+	</t:resttest>
+
+</t:test_case>
+
+<t:test_case testcaseid="RestServlet_FormatZIP_Filename_NFD" type="smoke" bugids="zcs-2352">
+    <t:objective>Verify the Japanese file name with "dakuten (full-phonetic-voiced)" symbols
+     in the the downloaded zip file is represented in NDF style.
+    </t:objective>
+    <t:steps>
+        0. Change the permission of the shell script (called from step 4.) to be executable.
+        1. Send a message with an attachment; the file name contains some "dakuten"
+           symbols in NFD style.
+        2. Verify the received message that the attachment name in the
+           Content-Disposition and Content-Type MIME headers is formatted in NFD.
+        3. Download the attachment.
+        4. Extract the file name data from the zip file and compare with the expected
+           file name data.
+    </t:steps>
+
+    <!-- Make sure that the test shell script has a right exec permission -->
+    <t:staftask >
+        <t:request>
+            <server>${zimbraServer.name}</server>
+            <service>PROCESS</service>
+            <params>START SHELL COMMAND "chmod 777 ${subscript1.sh} RETURNSTDOUT WAIT</params>
+        </t:request>
+    </t:staftask>
+
+    <!-- Send a message and verify the sent message -->
+    <t:test required="true">
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${admin.user}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:mailinjecttest>
+        <t:lmtpInjectRequest>
+            <filename>${message1.msg}</filename>
+            <to>${account1.name}</to>
+            <from>${admin.user}</from>
+            <server>${account1.server}</server>
+        </t:lmtpInjectRequest>
+    </t:mailinjecttest>
+
+    <t:test required="true">
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test>
+         <t:request>
+               <SearchRequest xmlns="urn:zimbraMail" types="message">
+                   <query>subject:(${message1.subject})</query>
+               </SearchRequest>
+         </t:request>
+          <t:response>
+            <t:select path="//mail:SearchResponse/mail:m" attr="id" set="message1.id"/>
+         </t:response>
+    </t:test>
+
+    <t:resttest>
+        <t:restServletRequest>
+            <id>${message1.id}</id>
+        </t:restServletRequest>
+        <t:restServletResponse>
+            <t:select match=".*=\?utf-8\?B\?44GL44KZ44GN44KZ44GP44KZ44GR44KZ44GT44KZ44GV44KZ44GX44KZ44GZ44KZ44Gb44KZ44Gd44KZ44Gf44KZ44Gh44KZ44Gk44KZ44Gm44KZ44Go44KZ44Gv44KZ44Gy44KZ44G144KZ44G444KZ44G744KZ44Gv44Ka44Gy44Ka44G144Ka44G444Ka44G744Ka44GG44KZ44Kd44KZLnR4dA==\?=.*" />
+        </t:restServletResponse>
+    </t:resttest>
+
+    <t:test required="true">
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:resttest>
+        <t:restServletRequest>
+            <id>${message1.id}</id>
+            <part>2,3</part>
+            <fmt>zip</fmt>
+        </t:restServletRequest>
+        <t:restServletResponse>
+            <t:select attr="StatusCode" match="200"/>
+            <t:save set="downloaded.path"/>
+        </t:restServletResponse>
+    </t:resttest>
+
+    <t:property name="server.zimbraAdmin" value="${zimbraServer.name}" />
+    <t:staftask >
+        <t:request>
+            <server>${zimbraServer.name}</server>
+            <service>PROCESS</service>
+            <params>START SHELL COMMAND "${subscript1.sh} ${downloaded.path} ${testMailRaw.root.absolute}" RETURNSTDOUT WAIT</params>
+        </t:request>
+        <t:response>
+            <t:select regex="(?s).*OK.*"/>
+        </t:response>
+    </t:staftask>
+</t:test_case>
+
+</t:tests>

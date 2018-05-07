@@ -1,0 +1,283 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="test_account1.name" value="test.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="folder1.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="folder2.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="folder3.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="folder4.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="folder5.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="folder6.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="folder7.name" value="folder.${TIME}.${COUNTER}"/>
+<t:property name="new.username1" value="updated1st"/>
+<t:property name="new.username2" value="updated2nd"/>
+<t:property name="new.username3" value="updated3rd"/>
+<t:property name="imap.user" value="soapautomation@zmexch.eng.vmware.com"/>
+<t:property name="imap.password" value="z1mbr4Migration"/>
+<t:property name="imap.host" value="10.137.242.162"/>
+<t:property name="imap.port" value="143"/>
+<t:property name="imap.connection.type" value="cleartext"/>
+
+<t:test_case testcaseid="Ping" type="always" >
+    <t:objective>Basic system check</t:objective>
+
+    <t:test id="ping" required="true">
+        <t:request>
+            <PingRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:PingResponse"/>
+        </t:response>
+    </t:test>
+</t:test_case>
+
+
+<t:test_case testcaseid="acctSetup_DataSource_create" type="always" >
+    <t:objective>Do account setup</t:objective>
+
+    <t:test id="admin_login" required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test>
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${test_account1.name}</name>
+                <password>${defaultpassword.value}</password>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="test_accountid1.id"/>
+            <t:select path="//admin:CreateAccountResponse/admin:account/admin:a[@n='zimbraMailHost']"  set="account1.server"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${test_account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.inbox}']" attr="id" set="parentfolder.id"/>
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+<t:test_case testcaseid="bug97761" type="smoke" bugids="97761">
+    <t:objective>Test boolean parameter "test" for CreateDataSourceRequest and ModifyDataSourceRequest</t:objective>
+  
+        <t:test>
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${folder1.name}" l="${parentfolder.id}"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="folder1.id"/>
+        </t:response>
+	</t:test>
+	
+        <t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder1.id}" username="${imap.user}" test="1"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="id" set="imap_account1.id"/>
+		</t:response>
+    </t:test>   
+    
+    <t:test>
+        <t:request>
+        	<DeleteDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap id="${imap_account1.id}" />
+        	</DeleteDataSourceRequest>
+        </t:request>
+    </t:test>    
+     
+            <t:test>
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${folder2.name}" l="${parentfolder.id}"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="folder2.id"/>
+        </t:response>
+	</t:test>
+	
+        <t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder2.id}" username="${imap.user}" test="0"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="id" set="imap_account2.id"/>
+		</t:response>
+    </t:test> 
+    
+    <t:test>
+        <t:request>
+        	<DeleteDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap id="${imap_account2.id}" />
+        	</DeleteDataSourceRequest>
+        </t:request>
+    </t:test> 
+    
+    <t:test>
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${folder3.name}" l="${parentfolder.id}"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="folder3.id"/>
+        </t:response>
+	</t:test>
+	
+    <t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="invalidsad" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder3.id}" username="${imap.user}" test="1"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+        	<t:select path="//zimbra:Code" match="^service.INVALID_REQUEST"/>
+		</t:response>
+    </t:test>   
+     
+	<t:test>
+        <t:request>
+        	<DeleteDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap id="${imap_account2.id}" />
+        	</DeleteDataSourceRequest>
+        </t:request>
+    </t:test> 
+    
+	<t:test>
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${folder4.name}" l="${parentfolder.id}"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="folder4.id"/>
+        </t:response>
+	</t:test>
+	
+    <t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="invalidsad" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder4.id}" username="${imap.user}" test="0"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+        	<t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="id" set="imap_account3.id"/>
+		</t:response>
+    </t:test> 
+
+    <t:test>
+        <t:request>    
+    		<ModifyDataSourceRequest xmlns="urn:zimbraMail">
+    			<imap id="${imap_account3.id}" isEnabled="true" pollingInterval="0" password="invalidpass" emailAddress="${imap.user}" host="${imap.host}" name="${new.username1}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder4.id}" username="${imap.user}" test="1"></imap>
+    		</ModifyDataSourceRequest>
+        </t:request>    
+        <t:response>
+        	<t:select path="//zimbra:Code" match="^service.INVALID_REQUEST"/>
+		</t:response>        
+    </t:test>
+
+    <t:test>
+        <t:request>    
+    		<GetDataSourcesRequest xmlns="urn:zimbraMail"></GetDataSourcesRequest>
+        </t:request>   
+         <t:response>
+        	<t:select path="//mail:GetDataSourcesResponse/mail:imap" attr="name" match="${imap.user}"/>
+		</t:response> 
+    </t:test>
+    
+        <t:test>
+        <t:request>    
+    		<ModifyDataSourceRequest xmlns="urn:zimbraMail">
+    			<imap id="${imap_account3.id}" isEnabled="true" pollingInterval="0" password="invalidpass" emailAddress="${imap.user}" host="${imap.host}234" name="${new.username1}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder4.id}" username="${imap.user}" test="0"></imap>
+    		</ModifyDataSourceRequest>
+        </t:request>    
+    </t:test>
+
+    <t:test>
+        <t:request>    
+    		<GetDataSourcesRequest xmlns="urn:zimbraMail"></GetDataSourcesRequest>
+        </t:request>   
+         <t:response>
+        	<t:select path="//mail:GetDataSourcesResponse/mail:imap" attr="name" match="${new.username1}"/>
+		</t:response> 
+    </t:test>
+    
+    <t:test>
+        <t:request>    
+    		<ModifyDataSourceRequest xmlns="urn:zimbraMail">
+    			<imap id="${imap_account3.id}" isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" host="${imap.host}" name="${new.username2}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder4.id}" username="${imap.user}" test="1"></imap>
+    		</ModifyDataSourceRequest>
+        </t:request>    
+    </t:test>
+
+    <t:test>
+        <t:request>    
+    		<GetDataSourcesRequest xmlns="urn:zimbraMail"></GetDataSourcesRequest>
+        </t:request>   
+         <t:response>
+        	<t:select path="//mail:GetDataSourcesResponse/mail:imap" attr="name" match="${new.username2}"/>
+		</t:response> 
+    </t:test>
+         
+    <t:test>
+        <t:request>    
+    		<ModifyDataSourceRequest xmlns="urn:zimbraMail">
+    			<imap id="${imap_account3.id}" isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" host="${imap.host}" name="${new.username3}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="${folder4.id}" username="${imap.user}" test="0"></imap>
+    		</ModifyDataSourceRequest>
+        </t:request>    
+    </t:test>
+
+    <t:test>
+        <t:request>    
+    		<GetDataSourcesRequest xmlns="urn:zimbraMail"></GetDataSourcesRequest>
+        </t:request>   
+         <t:response>
+        	<t:select path="//mail:GetDataSourcesResponse/mail:imap" attr="name" match="${new.username3}"/>
+		</t:response> 
+    </t:test>
+                
+	<t:test>
+        <t:request>
+        	<DeleteDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap id="${imap_account3.id}" />
+        	</DeleteDataSourceRequest>
+        </t:request>
+    </t:test> 
+    
+    </t:test_case>
+</t:tests>

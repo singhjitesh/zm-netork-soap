@@ -1,0 +1,104 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="test_account1.name" value="test1.${TIME}.${COUNTER}@${defaultdomain.name}" />
+
+<t:property name="compose.subject" value="Subject of the message is testing"/>
+<t:property name="compose.content" value="Content in the message is contents..."/>
+
+<t:property name="test_acct.server" value="NOT_DEFINED"/>
+
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}" />
+
+<t:test_case testcaseid="Ping" type="deprecated">
+    <t:objective>basic system check</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<PingRequest xmlns="urn:zimbraAdmin" />
+		</t:request>
+		<t:response>
+			<t:select path="//admin:PingResponse" />
+		</t:response>
+	</t:test>
+    
+</t:test_case>
+
+
+<t:test_case testcaseid="acctSetup1" type="deprecated">
+    <t:objective>create test account</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAdmin">
+				<name>${admin.user}</name>
+				<password>${admin.password}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:AuthResponse/admin:authToken" set="authToken" />
+		</t:response>
+	</t:test>
+    
+    <t:test required="true">
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${test_account1.name}</name>
+                <password>${defaultpassword.value}</password>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id" set="test_account1.id" />
+            <t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="test_acct1.server"/>
+        </t:response>
+    </t:test>
+
+	
+</t:test_case>
+
+<t:test_case testcaseid="acctlogin1" type="deprecated">
+    <t:objective>login as the test account.</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${test_account1.name}</account>
+				<password>${defaultpassword.value}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken" />
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="SendMessageRequest_NewAttr" type="deprecated" bugids="98338">
+	<t:objective>Provide an option to return sent messages details in SendMsgResponse</t:objective>
+	<t:steps>
+	   1. Verify that fetchSavedMsg="1" is set on SendMsgRequest,SendMsgResponse has the details of message sent.
+	</t:steps>
+	
+	<t:test>
+		<t:request>
+			<SendMsgRequest xmlns="urn:zimbraMail" fetchSavedMsg="1" >
+				<m>
+				<e t="t" a='${test_account1.name}'/>
+				<su>${compose.subject}</su>
+				<mp ct="text/plain">
+				<content> ${compose.content} </content>
+				</mp>
+				</m>
+			</SendMsgRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:SendMsgResponse/mail:m" attr = "su" match = "${compose.subject}" />
+			<t:select path="//mail:SendMsgResponse/mail:m[1]/mail:e[@t='f']" attr="a" match="${test_account1.name}" />
+	        <t:select path="//mail:SendMsgResponse/mail:m[1]/mail:mp/mail:content"/>
+		</t:response>
+	</t:test>
+    
+</t:test_case>
+
+
+</t:tests>

@@ -1,0 +1,114 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="test_account1.name" value="test.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="imap.user" value="soapautomation@zmexch.eng.vmware.com"/>
+<t:property name="imap.password" value="z1mbr4Migration"/>
+<t:property name="imap.host" value="10.137.242.162"/>
+<t:property name="imap.port" value="143"/>
+<t:property name="imap.connection.type" value="cleartext"/>
+
+<t:test_case testcaseid="Ping" type="always" >
+    <t:objective>Basic system check</t:objective>
+
+    <t:test id="ping" required="true">
+        <t:request>
+            <PingRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:PingResponse"/>
+        </t:response>
+    </t:test>
+</t:test_case>
+
+
+<t:test_case testcaseid="acctSetup_DataSource_create" type="always" >
+    <t:objective>Do account setup</t:objective>
+
+    <t:test id="admin_login" required="true" >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test>
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${test_account1.name}</name>
+                <password>${defaultpassword.value}</password>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="test_accountid1.id"/>
+            <t:select path="//admin:CreateAccountResponse/admin:account/admin:a[@n='zimbraMailHost']"  set="account1.server"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+    <t:test >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${test_account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.inbox}']" attr="id" set="parentfolder.id"/>
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+<t:test_case testcaseid="bug97951" type="smoke" bugids="97951">
+    <t:objective>Create datasource with "-l" option. If folder with same name exists, auto-create folder with numeric extension </t:objective>
+    
+        <t:test>
+        <t:request>
+            <CreateFolderRequest xmlns="urn:zimbraMail">
+                <folder name="${imap.user}" l="1"/>
+            </CreateFolderRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:CreateFolderResponse/mail:folder" attr="id" set="folder1.id"/>
+        </t:response>
+	</t:test>
+	
+        <t:test>
+        <t:request>
+        	<CreateDataSourceRequest xmlns="urn:zimbraMail">
+        		<imap isEnabled="true" pollingInterval="0" password="${imap.password}" emailAddress="${imap.user}" leaveOnServer="true" host="${imap.host}" name="${imap.user}" port="${imap.port}" connectionType="${imap.connection.type}" fromAddress="${test_account1.name}" l="-1" username="${imap.user}" test="1"></imap>
+        	</CreateDataSourceRequest>
+        </t:request>	
+        <t:response>
+            <t:select path="//mail:CreateDataSourceResponse/mail:imap" attr="id" set="imap_account1.id"/>
+		</t:response>
+    </t:test>   
+    
+    <t:test>
+        <t:request>
+        	<GetFolderRequest xmlns="urn:zimbraMail">
+        	</GetFolderRequest>
+        </t:request>
+        <t:response>
+        	<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name[contains(.,'_')]]" attr="name" contains="_"/>
+        </t:response>
+    </t:test>    
+     
+    </t:test_case>
+</t:tests>

@@ -1,0 +1,288 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="account1.name" value="account1.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account2.name" value="account2.${TIME}.${COUNTER}@${defaultdomain.name}"/>
+<t:property name="account1.wiki1.pagename" value="wiki.${TIME}.${COUNTER}"/>
+<t:property name="account1.wiki2.pagename" value="wiki.${TIME}.${COUNTER}"/>
+<t:property name="account1.document1.filename" value="${testMailRaw.root}/wiki01/basic.html"/>
+<t:property name="filename" value="basic.html"/>
+
+<t:test_case testcaseid="Ping" type="deprecated" >
+    <t:objective>basic system check</t:objective>
+
+	<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+	
+    <t:test id="ping" required="true">
+        <t:request>
+            <PingRequest xmlns="urn:zimbraAdmin"/>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:PingResponse"/>
+        </t:response>
+    </t:test>
+
+    <t:test  >
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAdmin">
+                <name>${admin.user}</name>
+                <password>${admin.password}</password>
+            </AuthRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:AuthResponse/admin:authToken" set="authToken"/>
+        </t:response>
+    </t:test>
+
+    <t:test >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account1.name}</name>
+                <password>${defaultpassword.value}</password>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account1.id"/>
+            <t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="account1.server"/>
+        </t:response>
+    </t:test>  
+
+    <t:test >
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${account2.name}</name>
+                <password>${defaultpassword.value}</password>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id"  set="account2.id"/>
+            <t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="account2.server"/>
+        </t:response>
+    </t:test>  
+
+</t:test_case>
+
+
+<t:test_case testcaseid="RestoreItems_Tasks_01" type="deprecated" areas="backup,nonappliance">
+    <t:objective>Backup (full) and restore an account with wiki pages in it. </t:objective>
+    <t:steps>
+    1. Login as account1
+    2. Save 2 wiki pages
+	3. Take full backup of that account
+    4. Delete the account1
+    5. Restore the account1
+    6. Verify all the tasks exists with their proper status
+    </t:steps>
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+    <t:test  required="true">
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account1.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+            </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:lifetime"  match="^\d+$"/>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.notebook}']" attr="id" set="acct1.notebook.id"/>
+		</t:response>
+	</t:test>
+
+	<t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+			  <w name="${account1.wiki1.pagename}" l="${acct1.notebook.id}">
+			  Now is the time for all good men to come to the aid of their country.
+			  </w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" match="^1$"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="uploadServletServer" value="${account1.server}"/>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+	<t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+			  <w name="${account1.wiki2.pagename}" l="${acct1.notebook.id}">
+				<a href="http://${account1.server}/home/${account1.name}/Notebook/${filename}"/>
+			  </w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" match="^1$"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="server.zimbraAdmin" value="${zimbraServer.name}"/>
+	<t:property name="account.name" value="${account1.name}"/>
+	<t:property name="account.id" value="${account1.id}"/>
+    <t:include filename="BackupWorkflowFullDeleteRestore.inc"/>
+
+	<t:property name="server.zimbraAccount" value="${account1.server}"/>
+
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${account1.name}</account>
+				<password>${defaultpassword.value}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:AuthResponse/acct:lifetime"  match="^\d+$"/>
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+		</t:response>
+	</t:test>
+
+    <t:test>
+		<t:request>
+			<SearchRequest xmlns="urn:zimbraMail" types="wiki,document">
+				<query>in:notebook</query>
+			</SearchRequest>
+		</t:request>
+		<t:response>
+			<t:select path='//mail:SearchResponse/mail:w[@name="${account1.wiki1.pagename}"]' emptyset="0"/>
+			<t:select path='//mail:SearchResponse/mail:w[@name="${account1.wiki2.pagename}"]' emptyset="0"/>
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+
+<t:test_case testcaseid="RestoreItems_Briefcase_02" type="deprecated" areas="backup,nonappliance">
+    <t:objective>Backup (incremental) and restore an account with wiki pages in it </t:objective>
+    <t:steps>
+    1. Login as account2
+	2. Take a full backup
+    3. Create few wiki with different status (same as in above tc)
+	4. Take increamental backup of account2
+    5. Delete the account2
+    6. Restore the account2
+    7. Verify that account2's task are proper
+    </t:steps>
+
+	<t:property name="server.zimbraAccount" value="${account2.server}"/>
+
+    <t:test  required="true">
+        <t:request>
+            <AuthRequest xmlns="urn:zimbraAccount">
+                <account by="name">${account2.name}</account>
+                <password>${defaultpassword.value}</password>
+            </AuthRequest>
+            </t:request>
+        <t:response>
+            <t:select path="//acct:AuthResponse/acct:lifetime"  match="^\d+$"/>
+            <t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+        </t:response>
+    </t:test>
+
+	<t:property name="account.name" value="${account2.name}"/>
+    <t:include filename="BackupRequestFullBasic.inc"/>
+	<t:property name="backup2.label1.id" value="${backup.label}"/>
+
+	<t:test>
+		<t:request>
+			<GetFolderRequest xmlns="urn:zimbraMail"/>
+		</t:request>
+		<t:response>
+			<t:select path="//mail:GetFolderResponse/mail:folder/mail:folder[@name='${globals.notebook}']" attr="id" set="acct2.notebook.id"/>
+		</t:response>
+	</t:test>
+
+	<t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+			  <w name="${account1.wiki1.pagename}" l="${acct2.notebook.id}">
+			  Now is the time for all good men to come to the aid of their country.
+			  </w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" match="^1$"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="uploadServletServer" value="${account2.server}"/>
+
+	<t:uploadservlettest>
+		<t:uploadServletRequest>
+			<filename>${account1.document1.filename}</filename>
+		</t:uploadServletRequest>
+		<t:uploadServletResponse>
+			<t:select attr="id" set="document1.aid"/>
+		</t:uploadServletResponse>
+	</t:uploadservlettest>
+
+	<t:test >
+        <t:request>
+			<SaveWikiRequest xmlns="urn:zimbraMail">
+			  <w name="${account1.wiki2.pagename}" l="${acct2.notebook.id}">
+				<a href="http://${account2.server}/home/${account2.name}/Notebook/${filename}"/>
+			  </w>
+			</SaveWikiRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//mail:SaveWikiResponse/mail:w" attr="ver" match="^1$"/>
+        </t:response>
+    </t:test>
+
+	<t:property name="account.name" value="${account2.name}"/>
+	<t:property name="account.id" value="${account2.id}"/>
+    <t:include filename="BackupWorkflowIncrementalDeleteRestore.inc"/>
+
+	<t:property name="server.zimbraAccount" value="${account2.server}"/>
+
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${account2.name}</account>
+				<password>${defaultpassword.value}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//acct:AuthResponse/acct:lifetime"  match="^\d+$"/>
+			<t:select path="//acct:AuthResponse/acct:authToken" set="authToken"/>
+
+		</t:response>
+	</t:test>
+
+     <t:test>
+		<t:request>
+			<SearchRequest xmlns="urn:zimbraMail" types="wiki,document">
+				<query>in:notebook</query>
+			</SearchRequest>
+		</t:request>
+		<t:response>
+			<t:select path='//mail:SearchResponse/mail:w[@name="${account1.wiki1.pagename}"]' emptyset="0"/>
+			<t:select path='//mail:SearchResponse/mail:w[@name="${account1.wiki2.pagename}"]' emptyset="0"/>
+		</t:response>
+	</t:test>
+
+</t:test_case>
+
+
+</t:tests>
+

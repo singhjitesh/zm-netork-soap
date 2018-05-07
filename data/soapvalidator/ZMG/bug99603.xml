@@ -1,0 +1,132 @@
+<t:tests xmlns:t="urn:zimbraTestHarness">
+
+<t:property name="test_account1.name" value="test1.${TIME}.${COUNTER}@${defaultdomain.name}" />
+
+
+<t:property name="test_acct.server" value="NOT_DEFINED"/>
+
+<t:property name="server.zimbraAdmin" value="${zimbraServer.name}" />
+
+<t:test_case testcaseid="Ping" type="deprecated">
+    <t:objective>basic system check</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<PingRequest xmlns="urn:zimbraAdmin" />
+		</t:request>
+		<t:response>
+			<t:select path="//admin:PingResponse" />
+		</t:response>
+	</t:test>
+    
+</t:test_case>
+
+
+<t:test_case testcaseid="acctSetup1" type="deprecated">
+    <t:objective>create test account</t:objective>
+    
+	<t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAdmin">
+				<name>${admin.user}</name>
+				<password>${admin.password}</password>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+			<t:select path="//admin:AuthResponse/admin:authToken" set="authToken" />
+		</t:response>
+	</t:test>
+    
+    <t:test required="true">
+        <t:request>
+            <CreateAccountRequest xmlns="urn:zimbraAdmin">
+                <name>${test_account1.name}</name>
+                <password>${defaultpassword.value}</password>
+                <a n="zimbraFeatureTwoFactorAuthAvailable">TRUE</a>
+            </CreateAccountRequest>
+        </t:request>
+        <t:response>
+            <t:select path="//admin:CreateAccountResponse/admin:account" attr="id" set="test_account1.id" />
+            <t:select path='//admin:CreateAccountResponse/admin:account/admin:a[@n="zimbraMailHost"]' set="test_acct1.server"/>
+        </t:response>
+    </t:test>
+</t:test_case>
+  
+   
+  
+  <t:test_case testcaseid="GetScratchCodesAPI" type="deprecated" bugids="99603">
+    <t:objective>Soap API for GetScratchCodesRequest</t:objective>
+    <t:steps>
+    1. Enable two factor authentication for an account.
+    2. Send get scratch codes soap request and verify that scratch codes returned match for that account.
+    </t:steps>
+    
+     <t:test required="true">
+		<t:request>
+	
+      <EnableTwoFactorAuthRequest xmlns="urn:zimbraAccount">
+          <name>${test_account1.name}</name>
+          <password>test123</password>
+      </EnableTwoFactorAuthRequest>
+  </t:request>
+  <t:response>
+            <t:select path="//acct:EnableTwoFactorAuthResponse/acct:authToken" set="temptoken" />
+			<t:select path="//acct:EnableTwoFactorAuthResponse/acct:secret" set="secret"/>
+	</t:response>
+	</t:test>
+	
+	
+	
+ <t:staftask >
+		<t:request>
+			<server>${zimbraServer.name}</server>
+			<service>PROCESS</service>
+			<params>START SHELL COMMAND "su - zimbra -c \'/opt/zimbra/bin/zmtotp -a ${test_account1.name} -s ${secret}'" RETURNSTDOUT WAIT</params>
+		</t:request>
+			<t:response>
+        	<t:select regex="(?s)(RC.*)(Data.*:\sCurrent TOTP code is:\s)([0-9].*[0-9])(.*)" group="3" set="totp"/>
+        </t:response> 
+    </t:staftask>
+    
+
+<t:test required="true">
+	<t:request>
+      <EnableTwoFactorAuthRequest xmlns="urn:zimbraAccount">
+          <name>${test_account1.name}</name>
+           <authToken verifyAccount="0">${temptoken}</authToken>
+           <twoFactorCode>${totp}</twoFactorCode>
+           </EnableTwoFactorAuthRequest>
+</t:request>
+  	<t:response>
+		<t:select path="//acct:EnableTwoFactorAuthResponse/acct:scratchCodes/acct:scratchCode" set="scratchcode1"/>
+	</t:response>
+	</t:test>
+	
+	
+	 <t:test required="true">
+		<t:request>
+			<AuthRequest xmlns="urn:zimbraAccount">
+				<account by="name">${test_account1.name}</account>
+				<password>test123</password>
+				<twoFactorCode>${scratchcode1}</twoFactorCode>
+			</AuthRequest>
+		</t:request>
+		<t:response>
+		   	<t:select path="//acct:AuthResponse/acct:authToken" set="authToken" />
+		</t:response>
+	</t:test>
+    
+   <t:test required="true">
+	<t:request>
+		 <GetScratchCodesRequest  xmlns="urn:zimbraAccount">
+		 </GetScratchCodesRequest>
+  	</t:request>
+  	 <t:response>
+		  <GetScratchCodesResponse>
+		  <t:select path="//acct:GetScratchCodesResponse/acct:scratchCodes/acct:scratchCode" match="${scratchcode1}"/>
+		  </GetScratchCodesResponse>
+	 </t:response>
+	</t:test>
+</t:test_case>
+
+</t:tests>
